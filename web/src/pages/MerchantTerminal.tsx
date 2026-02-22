@@ -52,30 +52,6 @@ function MerchantTerminal() {
     }
   };
 
-  const validatePaymentState = async (): Promise<boolean> => {
-    if (!wallet.walletAddress) {
-      setError("Connect wallet first");
-      return false;
-    }
-    if (!amount || Number(amount) <= 0) {
-      setError("Enter valid amount");
-      return false;
-    }
-    if (provider) {
-      try {
-        const creditData = await getCredit(provider, wallet.walletAddress);
-        if (!creditData.isActive) {
-          setError("No active credit line");
-          return false;
-        }
-      } catch {
-        setError("Could not verify credit line");
-        return false;
-      }
-    }
-    return true;
-  };
-
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const [showMetaMaskLink, setShowMetaMaskLink] = useState(false);
   const [showInstallLink, setShowInstallLink] = useState(false);
@@ -105,17 +81,46 @@ function MerchantTerminal() {
     }
   };
 
-  const executePayment = async () => {
-    if (!validatePaymentState() || !provider) return;
+  const executePayment = async (borrowerAddress?: string) => {
+    if (!provider) {
+      setError("Connect wallet first");
+      return;
+    }
+    if (!amount || Number(amount) <= 0) {
+      setError("Enter valid amount");
+      return;
+    }
+
+    const targetAddress = borrowerAddress || wallet.walletAddress;
+    if (!targetAddress) {
+      setError("No borrower address provided");
+      return;
+    }
 
     try {
       setStatus("processing");
       setError("");
 
+      // Check if borrower has active credit line
+      const creditData = await getCredit(provider, targetAddress);
+      if (!creditData.isActive) {
+        setError(`No active credit line for ${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`);
+        setStatus("error");
+        return;
+      }
+
       const creditManager = await getCreditManager(provider);
       const amountWei = toUSDC(Number(amount));
 
-      const tx = await creditManager.executePayment(wallet.walletAddress, amountWei);
+      // Check available credit
+      const availableCredit = creditData.creditLimit - creditData.amountBorrowed;
+      if (amountWei > availableCredit) {
+        setError(`Insufficient credit. Available: $${Number(availableCredit) / 1e6}`);
+        setStatus("error");
+        return;
+      }
+
+      const tx = await creditManager.executePayment(targetAddress, amountWei);
       const receipt = await tx.wait();
 
       setLastTxHash(receipt?.hash ?? tx.hash);
@@ -123,7 +128,7 @@ function MerchantTerminal() {
 
       setTimeout(async () => {
         try {
-          await getCredit(provider, wallet.walletAddress);
+          await getCredit(provider, targetAddress);
         } catch {
           // Polling error is non-critical
         }
@@ -135,7 +140,14 @@ function MerchantTerminal() {
   };
 
   const startNfcScan = async () => {
-    if (!(await validatePaymentState())) return;
+    if (!provider) {
+      setError("Connect wallet first");
+      return;
+    }
+    if (!amount || Number(amount) <= 0) {
+      setError("Enter valid amount");
+      return;
+    }
 
     if (!("NDEFReader" in window)) {
       setError("Web NFC not supported. Use Chrome on Android for NFC payments.");
@@ -151,8 +163,38 @@ function MerchantTerminal() {
       // Set up the reading handler BEFORE starting scan
       ndef.onreading = async (event: any) => {
         console.log("NFC tag detected!", event);
-        // Execute payment when any NFC tag is tapped
-        await executePayment();
+        
+        // Read wallet address from NFC card
+        let borrowerAddress = "";
+        
+        for (const record of event.message.records) {
+          if (record.recordType === "text") {
+            const textDecoder = new TextDecoder();
+            const text = textDecoder.decode(record.data);
+            console.log("NFC text content:", text);
+            
+            // Check if it's a valid Ethereum address
+            if (text.startsWith("0x") && text.length === 42) {
+              borrowerAddress = text;
+              break;
+            }
+            // Also check for address without 0x prefix
+            if (text.length === 40 && /^[0-9a-fA-F]+$/.test(text)) {
+              borrowerAddress = "0x" + text;
+              break;
+            }
+          }
+        }
+
+        if (!borrowerAddress) {
+          setError("No valid wallet address found on NFC card. Please write an Ethereum address to the card.");
+          setStatus("error");
+          return;
+        }
+
+        console.log("Borrower address from NFC:", borrowerAddress);
+        // Execute payment using the address from the NFC card
+        await executePayment(borrowerAddress);
       };
 
       ndef.onreadingerror = (event: any) => {
