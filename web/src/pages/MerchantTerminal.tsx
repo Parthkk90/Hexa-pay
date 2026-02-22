@@ -228,19 +228,32 @@ function MerchantTerminal() {
               const statusByte = dataView.getUint8(0);
               const languageCodeLength = statusByte & 0x3F; // Get bits 0-5
               
+              console.log("🔍 NFC Debug:", {
+                statusByte,
+                languageCodeLength,
+                rawData: new TextDecoder().decode(record.data),
+                dataLength: record.data.byteLength
+              });
+              
               // Skip status byte (1) and language code (languageCodeLength)
               const textStart = 1 + languageCodeLength;
               const textBytes = new Uint8Array(record.data.buffer, textStart);
               const text = textDecoder.decode(textBytes);
               
+              console.log("🔍 Extracted text:", { text, length: text.length });
+              
               if (text.startsWith("0x") && text.length === 42) {
                 borrowerAddress = text;
+                console.log("✅ Valid address found:", borrowerAddress);
                 break;
               }
               if (text.length === 40 && /^[0-9a-fA-F]+$/.test(text)) {
                 borrowerAddress = "0x" + text;
+                console.log("✅ Valid address found (added 0x):", borrowerAddress);
                 break;
               }
+              
+              console.log("❌ Text doesn't match address format");
             }
           }
 
@@ -527,10 +540,11 @@ function MerchantTerminal() {
                     borderRadius: "8px",
                     border: "1px solid var(--color-border)"
                   }}>
-                    <label style={{ display: "block", marginBottom: "8px", fontSize: "14px" }}>
+                    <label htmlFor="mnemonic-input" style={{ display: "block", marginBottom: "8px", fontSize: "14px" }}>
                       Enter deployer mnemonic (12 words):
                     </label>
                     <textarea
+                      id="mnemonic-input"
                       value={mnemonicInput}
                       onChange={(e) => setMnemonicInput(e.target.value)}
                       placeholder="word1 word2 word3 ... word12"
@@ -582,10 +596,11 @@ function MerchantTerminal() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", marginBottom: "8px", color: "var(--color-text-dim)" }}>
+                  <label htmlFor="merchant-name" style={{ display: "block", marginBottom: "8px", color: "var(--color-text-dim)" }}>
                     Merchant Name
                   </label>
                   <input
+                    id="merchant-name"
                     type="text"
                     value={merchantName}
                     onChange={(e) => setMerchantName(e.target.value)}
@@ -595,10 +610,11 @@ function MerchantTerminal() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", marginBottom: "8px", color: "var(--color-text-dim)" }}>
+                  <label htmlFor="amount-usd" style={{ display: "block", marginBottom: "8px", color: "var(--color-text-dim)" }}>
                     Amount (USD)
                   </label>
                   <input
+                    id="amount-usd"
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
