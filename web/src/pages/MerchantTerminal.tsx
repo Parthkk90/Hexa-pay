@@ -1,16 +1,21 @@
 import { useState, useEffect } from "react";
-import { BrowserProvider } from "ethers";
+import { BrowserProvider, Wallet, HDNodeWallet } from "ethers";
 import { useWallet } from "../state/useWallet";
 import { connectWallet, getProvider, openInMetaMask } from "../lib/wallet";
-import { getCredit, getCreditManager } from "../lib/contracts";
+import { getCreditReadOnly, getCreditManagerWithWallet } from "../lib/contracts";
+import { getEmbeddedWallet, getEmbeddedWalletBalance } from "../lib/embeddedWallet";
 import { toUSDC } from "../utils/usdcUtils";
 import { MONAD_TESTNET } from "../config/chains";
  
 type PaymentStatus = "idle" | "waiting" | "processing" | "success" | "error";
+type WalletMode = "none" | "metamask" | "embedded";
 
 function MerchantTerminal() {
   const wallet = useWallet();
   const [provider, setProvider] = useState<BrowserProvider | null>(null);
+  const [embeddedWallet, setEmbeddedWallet] = useState<Wallet | HDNodeWallet | null>(null);
+  const [walletMode, setWalletMode] = useState<WalletMode>("none");
+  const [embeddedBalance, setEmbeddedBalance] = useState("0");
   const [merchantName, setMerchantName] = useState("Coffee Shop");
   const [amount, setAmount] = useState("12.50");
   const [status, setStatus] = useState<PaymentStatus>("idle");
@@ -23,6 +28,7 @@ function MerchantTerminal() {
   useEffect(() => {
     if (wallet.walletAddress) {
       getProvider().then(setProvider);
+      setWalletMode("metamask");
     }
 
     // Check NFC support
@@ -56,6 +62,7 @@ function MerchantTerminal() {
   const [showMetaMaskLink, setShowMetaMaskLink] = useState(false);
   const [showInstallLink, setShowInstallLink] = useState(false);
 
+  // Connect with MetaMask
   const handleConnect = async () => {
     try {
       setError("");
@@ -65,11 +72,12 @@ function MerchantTerminal() {
       wallet.setWalletAddress(address);
       const p = await getProvider();
       setProvider(p);
+      setWalletMode("metamask");
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Failed to connect";
       if (errorMsg === "OPEN_METAMASK") {
         if (isMobileDevice) {
-          setError("MetaMask not detected. Tap the button below to open in MetaMask app.");
+          setError("MetaMask not available in Chrome. Use Embedded Wallet for NFC payments.");
           setShowMetaMaskLink(true);
         } else {
           setError("MetaMask not detected. Install MetaMask extension to continue.");
@@ -81,8 +89,30 @@ function MerchantTerminal() {
     }
   };
 
+  // Connect with embedded wallet (for Chrome NFC)
+  const handleEmbeddedConnect = async () => {
+    try {
+      setError("");
+      const ew = getEmbeddedWallet();
+      setEmbeddedWallet(ew);
+      wallet.setWalletAddress(ew.address);
+      setWalletMode("embedded");
+      
+      // Get balance
+      const balance = await getEmbeddedWalletBalance();
+      setEmbeddedBalance(balance);
+      
+      if (parseFloat(balance) < 0.001) {
+        setError(`Embedded wallet needs gas. Send MON to: ${ew.address}`);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create wallet");
+    }
+  };
+
   const executePayment = async (borrowerAddress?: string) => {
-    if (!provider) {
+    // Check we have a wallet connected (either mode)
+    if (walletMode === "none") {
       setError("Connect wallet first");
       return;
     }
@@ -101,15 +131,14 @@ function MerchantTerminal() {
       setStatus("processing");
       setError("");
 
-      // Check if borrower has active credit line
-      const creditData = await getCredit(provider, targetAddress);
+      // Check if borrower has active credit line (read-only, no wallet needed)
+      const creditData = await getCreditReadOnly(targetAddress);
       if (!creditData.isActive) {
         setError(`No active credit line for ${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`);
         setStatus("error");
         return;
       }
 
-      const creditManager = await getCreditManager(provider);
       const amountWei = toUSDC(Number(amount));
 
       // Check available credit
@@ -120,7 +149,23 @@ function MerchantTerminal() {
         return;
       }
 
-      const tx = await creditManager.executePayment(targetAddress, amountWei);
+      let tx;
+      
+      if (walletMode === "embedded" && embeddedWallet) {
+        // Use embedded wallet
+        const creditManager = getCreditManagerWithWallet(embeddedWallet);
+        tx = await creditManager.executePayment(targetAddress, amountWei);
+      } else if (provider) {
+        // Use MetaMask
+        const signer = await provider.getSigner();
+        const creditManager = getCreditManagerWithWallet(signer);
+        tx = await creditManager.executePayment(targetAddress, amountWei);
+      } else {
+        setError("No wallet available");
+        setStatus("error");
+        return;
+      }
+
       const receipt = await tx.wait();
 
       setLastTxHash(receipt?.hash ?? tx.hash);
@@ -128,7 +173,7 @@ function MerchantTerminal() {
 
       setTimeout(async () => {
         try {
-          await getCredit(provider, targetAddress);
+          await getCreditReadOnly(targetAddress);
         } catch {
           // Polling error is non-critical
         }
@@ -260,12 +305,59 @@ function MerchantTerminal() {
           <p className="text-dim">Accept crypto payments with NFC tap-to-pay</p>
         </div>
 
-        {!wallet.walletAddress ? (
-          <button onClick={handleConnect} style={{ width: "100%" }}>
-            Connect Wallet
-          </button>
+        {walletMode === "none" ? (
+          <div className="grid">
+            <button onClick={handleConnect} style={{ width: "100%" }}>
+              Connect MetaMask
+            </button>
+            
+            <div style={{ textAlign: "center", color: "var(--color-text-dim)", fontSize: "14px" }}>
+              — or use Chrome with NFC —
+            </div>
+            
+            <button 
+              onClick={handleEmbeddedConnect} 
+              style={{ 
+                width: "100%", 
+                background: "#10b981",
+              }}
+            >
+              Use Embedded Wallet (NFC Ready)
+            </button>
+            
+            {nfcSupported && isAndroid && (
+              <p style={{ textAlign: "center", fontSize: "12px", color: "#10b981" }}>
+                ✓ NFC detected - Embedded wallet recommended for Chrome
+              </p>
+            )}
+          </div>
         ) : (
           <div className="grid">
+            {/* Wallet Info */}
+            <div style={{ 
+              background: "var(--color-surface)", 
+              padding: "12px", 
+              borderRadius: "8px",
+              fontSize: "14px"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="text-dim">
+                  {walletMode === "embedded" ? "Embedded Wallet" : "MetaMask"}
+                </span>
+                <span style={{ fontFamily: "monospace" }}>
+                  {wallet.walletAddress?.slice(0, 6)}...{wallet.walletAddress?.slice(-4)}
+                </span>
+              </div>
+              {walletMode === "embedded" && (
+                <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between" }}>
+                  <span className="text-dim">Gas Balance:</span>
+                  <span style={{ color: parseFloat(embeddedBalance) < 0.001 ? "#ef4444" : "#10b981" }}>
+                    {parseFloat(embeddedBalance).toFixed(4)} MON
+                  </span>
+                </div>
+              )}
+            </div>
+
             <div>
               <label style={{ display: "block", marginBottom: "8px", color: "var(--color-text-dim)" }}>
                 Merchant Name
