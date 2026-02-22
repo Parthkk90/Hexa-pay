@@ -1,0 +1,21 @@
+{
+  "network": "monadTestnet",
+  "chainId": 10143,
+  "deployedAt": "2026-02-22T06:06:10.523Z",
+  "deployer": "0xD92E59A5a242BeC9A74C6e0b0f68cDc726eC1Ceb",
+  "transactions": {
+    "mockUsdcDeployTx": "0x39a000fa522a20b455dec9747e6ae8ec1f36f0deb629d284cc9184fbc12dc27e",
+    "creditManagerDeployTx": "0xd56976bca1a2ca956db21dbb0e403024b901d73b91372086e9cbc1ddf4b5620f",
+    "mintTxHashes": [
+      "0x6a421ba12908ff86ef970d47d6da8b3cca5d613d95322756c559691baf73d954"
+    ]
+  },
+  "mockUsdc": {
+    "address": "0xDB8127513663b991A1A24BdA4F9f2f02A112D974",
+    "decimals": 6
+  },
+  "creditManager": {
+    "address": "0x455AC5919140d0149aad95D8242a04c1462eA986",
+    "nfcBridge": "0xD92E59A5a242BeC9A74C6e0b0f68cDc726eC1Ceb"
+  }
+}
