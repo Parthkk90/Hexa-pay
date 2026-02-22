@@ -5,8 +5,10 @@ import { connectWallet, getProvider, openInMetaMask } from "../lib/wallet";
 import { getCredit, getUsdc, getCreditManager, type CreditSnapshot } from "../lib/contracts";
 import { toUSDC, formatUSDC } from "../utils/usdcUtils";
 import { CREDIT_MANAGER_ADDRESS } from "../config/contracts";
+import { getEmbeddedWallet, getEmbeddedWalletBalance, importWalletFromMnemonic } from "../lib/embeddedWallet";
 
 type Step = "connect" | "approve" | "complete";
+type WalletMode = "none" | "metamask" | "embedded";
 
 function BorrowerDashboard() {
   const wallet = useWallet();
@@ -17,6 +19,9 @@ function BorrowerDashboard() {
   const [usdcBalance, setUsdcBalance] = useState(0n);
   const [credit, setCredit] = useState<CreditSnapshot | null>(null);
   const [stakeAmount, setStakeAmount] = useState("100");
+  const [walletMode, setWalletMode] = useState<WalletMode>("none");
+  const [showImportForm, setShowImportForm] = useState(false);
+  const [mnemonicInput, setMnemonicInput] = useState("");
 
   useEffect(() => {
     if (wallet.walletAddress) {
@@ -59,6 +64,7 @@ function BorrowerDashboard() {
       setShowInstallLink(false);
       const address = await connectWallet();
       wallet.setWalletAddress(address);
+      setWalletMode("metamask");
       setStep("approve");
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Failed to connect";
@@ -73,6 +79,53 @@ function BorrowerDashboard() {
       } else {
         setError(errorMsg);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmbeddedConnect = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const ew = getEmbeddedWallet();
+      wallet.setWalletAddress(ew.address);
+      setWalletMode("embedded");
+      setStep("approve");
+      
+      const balance = await getEmbeddedWalletBalance();
+      if (parseFloat(balance) < 0.001) {
+        setError(`Embedded wallet needs gas. Send MON to: ${ew.address}`);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create wallet");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImportMnemonic = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      if (!mnemonicInput.trim()) {
+        setError("Enter mnemonic phrase");
+        return;
+      }
+      
+      const ew = importWalletFromMnemonic(mnemonicInput.trim());
+      wallet.setWalletAddress(ew.address);
+      setWalletMode("embedded");
+      setShowImportForm(false);
+      setMnemonicInput("");
+      setStep("approve");
+      
+      const balance = await getEmbeddedWalletBalance();
+      if (parseFloat(balance) < 0.001) {
+        setError(`Wallet needs gas. Send MON to: ${ew.address}`);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Invalid mnemonic");
     } finally {
       setLoading(false);
     }
@@ -177,13 +230,76 @@ function BorrowerDashboard() {
             </div>
             {wallet.walletAddress ? (
               <div>
-                <p className="text-dim">Connected: {wallet.walletAddress.slice(0, 6)}...{wallet.walletAddress.slice(-4)}</p>
+                <p className="text-dim">
+                  {walletMode === "embedded" ? "Embedded Wallet" : "MetaMask"}: {wallet.walletAddress.slice(0, 6)}...{wallet.walletAddress.slice(-4)}
+                </p>
                 {usdcBalance > 0n && <p className="text-success">Balance: {formatUSDC(usdcBalance)} USDC</p>}
               </div>
             ) : (
-              <button onClick={handleConnect} disabled={loading}>
-                {loading ? "Connecting..." : "Connect MetaMask"}
-              </button>
+              <div className="grid">
+                <button onClick={handleConnect} disabled={loading}>
+                  {loading ? "Connecting..." : "Connect MetaMask"}
+                </button>
+                
+                <div style={{ textAlign: "center", color: "var(--color-text-dim)", fontSize: "14px" }}>
+                  — or —
+                </div>
+                
+                <button 
+                  onClick={handleEmbeddedConnect} 
+                  disabled={loading}
+                  style={{ background: "#10b981" }}
+                >
+                  Use Embedded Wallet
+                </button>
+                
+                <button 
+                  onClick={() => setShowImportForm(!showImportForm)} 
+                  disabled={loading}
+                  style={{ 
+                    background: "transparent",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-text)"
+                  }}
+                >
+                  {showImportForm ? "Cancel" : "Import Authorized Wallet"}
+                </button>
+                
+                {showImportForm && (
+                  <div style={{ 
+                    padding: "16px", 
+                    background: "var(--color-surface)",
+                    borderRadius: "8px",
+                    border: "1px solid var(--color-border)"
+                  }}>
+                    <label style={{ display: "block", marginBottom: "8px", fontSize: "14px" }}>
+                      Enter deployer mnemonic (12 words):
+                    </label>
+                    <textarea
+                      value={mnemonicInput}
+                      onChange={(e) => setMnemonicInput(e.target.value)}
+                      placeholder="word1 word2 word3 ... word12"
+                      disabled={loading}
+                      style={{
+                        width: "100%",
+                        minHeight: "80px",
+                        fontFamily: "monospace",
+                        fontSize: "12px"
+                      }}
+                    />
+                    <button 
+                      onClick={handleImportMnemonic}
+                      disabled={loading}
+                      style={{ width: "100%", marginTop: "8px", background: "#6366f1" }}
+                    >
+                      {loading ? "Importing..." : "Import & Connect"}
+                    </button>
+                    <p style={{ fontSize: "11px", color: "var(--color-text-dim)", marginTop: "8px" }}>
+                      This imports the authorized wallet for NFC payment execution.
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
