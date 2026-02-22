@@ -221,7 +221,17 @@ function MerchantTerminal() {
           for (const record of event.message.records) {
             if (record.recordType === "text") {
               const textDecoder = new TextDecoder();
-              const text = textDecoder.decode(record.data);
+              const dataView = new DataView(record.data.buffer);
+              
+              // NFC Text Record format: [status byte][language code][text]
+              // Status byte: bit 7 = encoding (0=UTF-8), bits 0-5 = language code length
+              const statusByte = dataView.getUint8(0);
+              const languageCodeLength = statusByte & 0x3F; // Get bits 0-5
+              
+              // Skip status byte (1) and language code (languageCodeLength)
+              const textStart = 1 + languageCodeLength;
+              const textBytes = new Uint8Array(record.data.buffer, textStart);
+              const text = textDecoder.decode(textBytes);
               
               if (text.startsWith("0x") && text.length === 42) {
                 borrowerAddress = text;
