@@ -3,7 +3,7 @@ import { BrowserProvider, Wallet, HDNodeWallet } from "ethers";
 import { useWallet } from "../state/useWallet";
 import { connectWallet, getProvider, openInMetaMask } from "../lib/wallet";
 import { getCreditReadOnly, getCreditManagerWithWallet } from "../lib/contracts";
-import { getEmbeddedWallet, getEmbeddedWalletBalance } from "../lib/embeddedWallet";
+import { getEmbeddedWallet, getEmbeddedWalletBalance, importWalletFromMnemonic } from "../lib/embeddedWallet";
 import { toUSDC } from "../utils/usdcUtils";
 import { MONAD_TESTNET } from "../config/chains";
  
@@ -24,6 +24,8 @@ function MerchantTerminal() {
   const [nfcSupported, setNfcSupported] = useState(false);
   const [nfcPermission, setNfcPermission] = useState<"prompt" | "granted" | "denied">("prompt");
   const [isAndroid, setIsAndroid] = useState(false);
+  const [showImportForm, setShowImportForm] = useState(false);
+  const [mnemonicInput, setMnemonicInput] = useState("");
 
   useEffect(() => {
     if (wallet.walletAddress) {
@@ -107,6 +109,33 @@ function MerchantTerminal() {
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create wallet");
+    }
+  };
+
+  // Import authorized wallet from mnemonic
+  const handleImportMnemonic = async () => {
+    try {
+      setError("");
+      if (!mnemonicInput.trim()) {
+        setError("Enter mnemonic phrase");
+        return;
+      }
+      
+      const ew = importWalletFromMnemonic(mnemonicInput.trim());
+      setEmbeddedWallet(ew);
+      wallet.setWalletAddress(ew.address);
+      setWalletMode("embedded");
+      setShowImportForm(false);
+      setMnemonicInput("");
+      
+      const balance = await getEmbeddedWalletBalance();
+      setEmbeddedBalance(balance);
+      
+      if (parseFloat(balance) < 0.001) {
+        setError(`Wallet needs gas. Send MON to: ${ew.address}`);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Invalid mnemonic");
     }
   };
 
@@ -324,6 +353,51 @@ function MerchantTerminal() {
             >
               Use Embedded Wallet (NFC Ready)
             </button>
+            
+            <button 
+              onClick={() => setShowImportForm(!showImportForm)} 
+              style={{ 
+                width: "100%", 
+                background: "transparent",
+                border: "1px solid var(--color-border)",
+                color: "var(--color-text)"
+              }}
+            >
+              {showImportForm ? "Cancel" : "Import Authorized Wallet"}
+            </button>
+            
+            {showImportForm && (
+              <div style={{ 
+                padding: "16px", 
+                background: "var(--color-surface)",
+                borderRadius: "8px",
+                border: "1px solid var(--color-border)"
+              }}>
+                <label style={{ display: "block", marginBottom: "8px", fontSize: "14px" }}>
+                  Enter deployer mnemonic (12 words):
+                </label>
+                <textarea
+                  value={mnemonicInput}
+                  onChange={(e) => setMnemonicInput(e.target.value)}
+                  placeholder="word1 word2 word3 ... word12"
+                  style={{
+                    width: "100%",
+                    minHeight: "80px",
+                    fontFamily: "monospace",
+                    fontSize: "12px"
+                  }}
+                />
+                <button 
+                  onClick={handleImportMnemonic}
+                  style={{ width: "100%", marginTop: "8px", background: "#6366f1" }}
+                >
+                  Import & Connect
+                </button>
+                <p style={{ fontSize: "11px", color: "var(--color-text-dim)", marginTop: "8px" }}>
+                  Use the deployer wallet mnemonic from contracts/.env to enable payment execution.
+                </p>
+              </div>
+            )}
             
             {nfcSupported && isAndroid && (
               <p style={{ textAlign: "center", fontSize: "12px", color: "#10b981" }}>

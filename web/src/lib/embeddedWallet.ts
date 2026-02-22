@@ -1,4 +1,4 @@
-import { Wallet, HDNodeWallet, JsonRpcProvider, formatEther } from "ethers";
+import { Wallet, HDNodeWallet, JsonRpcProvider, formatEther, Mnemonic } from "ethers";
 import { MONAD_TESTNET } from "../config/chains";
 
 const STORAGE_KEY = "hexa_embedded_wallet";
@@ -80,7 +80,7 @@ export function exportPrivateKey(): string | null {
   return null;
 }
 
-// Import existing wallet
+// Import existing wallet from private key
 export function importWallet(privateKey: string): Wallet {
   const provider = new JsonRpcProvider(MONAD_TESTNET.rpc);
   const wallet = new Wallet(privateKey, provider);
@@ -91,6 +91,21 @@ export function importWallet(privateKey: string): Wallet {
   }));
   
   return wallet;
+}
+
+// Import wallet from mnemonic phrase
+export function importWalletFromMnemonic(mnemonicPhrase: string): HDNodeWallet {
+  const provider = new JsonRpcProvider(MONAD_TESTNET.rpc);
+  const mnemonic = Mnemonic.fromPhrase(mnemonicPhrase.trim());
+  const wallet = HDNodeWallet.fromMnemonic(mnemonic);
+  const connectedWallet = wallet.connect(provider);
+  
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    privateKey: wallet.privateKey,
+    address: wallet.address
+  }));
+  
+  return connectedWallet;
 }
 
 // Clear embedded wallet
