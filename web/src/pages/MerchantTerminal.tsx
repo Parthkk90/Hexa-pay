@@ -11,7 +11,10 @@ type PaymentStatus = "idle" | "waiting" | "processing" | "success" | "error";
 type WalletMode = "none" | "metamask" | "embedded";
 type DeviceMode = "desktop" | "phone";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+// In production on Vercel, use relative URL (same domain)
+// In development, use environment variable or localhost
+const API_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD ? "" : "http://localhost:3001");
 
 function MerchantTerminal() {
   const wallet = useWallet();
