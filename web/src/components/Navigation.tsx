@@ -44,7 +44,7 @@ function Navigation() {
         Hexa-cred
       </div>
 
-      <div style={{ display: "flex", gap: "12px" }}>
+      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
         <button
           onClick={() => navigate("/")}
           style={{
@@ -53,7 +53,22 @@ function Navigation() {
             padding: "8px 16px",
             fontSize: "14px",
             color: isActive("/") ? "#ffffff" : "#111827",
-            fontWeight: "500"
+            fontWeight: "500",
+            borderRadius: "8px",
+            cursor: "pointer",
+            transition: "all 0.2s ease"
+          }}
+          onMouseEnter={(e) => {
+            if (!isActive("/")) {
+              e.currentTarget.style.background = "#f3f4f6";
+              e.currentTarget.style.borderColor = "#6366f1";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive("/")) {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = "#e5e7eb";
+            }
           }}
         >
           Home
@@ -66,7 +81,22 @@ function Navigation() {
             padding: "8px 16px",
             fontSize: "14px",
             color: isActive("/app") ? "#ffffff" : "#111827",
-            fontWeight: "500"
+            fontWeight: "500",
+            borderRadius: "8px",
+            cursor: "pointer",
+            transition: "all 0.2s ease"
+          }}
+          onMouseEnter={(e) => {
+            if (!isActive("/app")) {
+              e.currentTarget.style.background = "#f3f4f6";
+              e.currentTarget.style.borderColor = "#6366f1";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive("/app")) {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = "#e5e7eb";
+            }
           }}
         >
           Dashboard
@@ -79,7 +109,22 @@ function Navigation() {
             padding: "8px 16px",
             fontSize: "14px",
             color: isActive("/pay") ? "#ffffff" : "#111827",
-            fontWeight: "500"
+            fontWeight: "500",
+            borderRadius: "8px",
+            cursor: "pointer",
+            transition: "all 0.2s ease"
+          }}
+          onMouseEnter={(e) => {
+            if (!isActive("/pay")) {
+              e.currentTarget.style.background = "#f3f4f6";
+              e.currentTarget.style.borderColor = "#6366f1";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive("/pay")) {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = "#e5e7eb";
+            }
           }}
         >
           Payment Terminal
