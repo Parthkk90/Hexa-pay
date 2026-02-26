@@ -4,56 +4,63 @@ function NotFound() {
   const navigate = useNavigate();
 
   return (
-    <div style={{
-      minHeight: "calc(100vh - 80px)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px 20px",
-      background: "#f9fafb"
-    }}>
-      <div style={{
-        maxWidth: "600px",
-        padding: "60px 40px",
-        background: "#ffffff",
-        borderRadius: "16px",
-        border: "1px solid #e5e7eb",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-        textAlign: "center"
-      }}>
-        <div style={{
-          fontSize: "120px",
-          fontWeight: "800",
-          lineHeight: "1",
-          background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          backgroundClip: "text",
-          marginBottom: "24px"
-        }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "calc(100vh - 80px)",
+        padding: "20px",
+        textAlign: "center",
+        background: "#f9fafb",
+      }}
+    >
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: "16px",
+          padding: "60px 40px",
+          maxWidth: "600px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "120px",
+            fontWeight: "800",
+            color: "#6366f1",
+            lineHeight: "1",
+            marginBottom: "16px",
+          }}
+        >
           404
         </div>
-        <h1 style={{
-          fontSize: "32px",
-          fontWeight: "700",
-          marginBottom: "16px",
-          color: "#111827"
-        }}>
+        <h1
+          style={{
+            fontSize: "32px",
+            fontWeight: "700",
+            color: "#111827",
+            marginBottom: "16px",
+          }}
+        >
           Page Not Found
         </h1>
-        <p style={{
-          fontSize: "18px",
-          color: "#6b7280",
-          marginBottom: "40px",
-          lineHeight: "1.6"
-        }}>
+        <p
+          style={{
+            color: "#6b7280",
+            fontSize: "18px",
+            marginBottom: "32px",
+            lineHeight: "1.6",
+          }}
+        >
           The page you're looking for doesn't exist or has been moved.
         </p>
-        <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
           <button
             onClick={() => navigate("/")}
             style={{
-              padding: "14px 32px",
+              padding: "12px 32px",
               fontSize: "16px",
               background: "#6366f1",
               color: "#ffffff",
@@ -61,17 +68,23 @@ function NotFound() {
               borderRadius: "8px",
               cursor: "pointer",
               fontWeight: "600",
-              transition: "all 0.2s"
+              transition: "all 0.2s",
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#4f46e5"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "#6366f1"}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = "0.9";
+              e.currentTarget.style.transform = "translateY(-2px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = "1";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
           >
-            Go Home
+            Go to Homepage
           </button>
           <button
             onClick={() => navigate("/app")}
             style={{
-              padding: "14px 32px",
+              padding: "12px 32px",
               fontSize: "16px",
               background: "transparent",
               color: "#6366f1",
@@ -79,7 +92,7 @@ function NotFound() {
               borderRadius: "8px",
               cursor: "pointer",
               fontWeight: "600",
-              transition: "all 0.2s"
+              transition: "all 0.2s",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = "#6366f1";
